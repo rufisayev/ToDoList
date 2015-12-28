@@ -5,7 +5,14 @@ var FireBase = require('firebase');
 var fireBaseUrl = 'https://todolistprject.firebaseio.com/';
 var ListPanel = require('./list-panel');
 var update = require('react-addons-update');
-var _ = require('underscore');
+var _ = require('lodash');
+
+
+var FilterType = {
+    ALL: 'ALL',
+    SELECTED: 'SELECTED',
+    UNSELECTED: 'UNSELECTED'
+};
 
 var MainPage = React.createClass({
 
@@ -19,7 +26,7 @@ var MainPage = React.createClass({
             <AddPanel itemStore={this.firebaseRefs.toDoList}/>
             <hr/>
             <div >
-                <ListPanel items={this.state.toDoList}/>
+                <ListPanel items={this.filterTodos(this.state.filterType)}/>
                 <div className="text center clear-complete">
                     <hr/>
                     <button
@@ -40,6 +47,12 @@ var MainPage = React.createClass({
                         className="btn btn-default">
                         UnSelected
                     </button>
+                    <button
+                        type="button"
+                        onClick={this.handleAllItemsClick}
+                        className="btn btn-default">
+                        All
+                    </button>
                 </div>
             </div>
         </div>
@@ -49,60 +62,59 @@ var MainPage = React.createClass({
 
     getInitialState: function () {
         return {
-            toDoList: {},
+            toDoList: [],
             dataLoaded: false,
-            stateChanged: false,
-            dummyData: []
+            filterType: FilterType.ALL
         }
     },
 
     componentWillMount: function () {
         this.fireBase = new FireBase(fireBaseUrl + 'toDoList');
-        this.bindAsObject(this.fireBase, 'toDoList');
+        //this.bindAsObject(this.fireBase, 'toDoList');
         this.fireBase.on('value', this.handleToDoListLoaded);
     },
-    componentDidMount: function () {
-        console.log('todo', this.state.toDoList)
+    handleSelectedClick: function () {
+        this.setState({ filterType: FilterType.SELECTED });
+        console.log('###', this.state);
     },
-    handleSelectedClick: function (event) {
-        if (this.state.stateChanged === false) {
-            console.log(1)
-            this.setState({stateChanged: true, dummyData: this.state.toDoList})
-        } else {
-            this.setState({toDoList: this.state.dummyData});
-        }
-
-        var result = _.filter(this.state.toDoList, function (item) {
-            return item.isFinished === true;
-        });
-        this.setState({toDoList: result})
-    },
-    handleUnSelectedClick: function (event) {
-        if (this.state.stateChanged === false) {
-            this.setState({stateChanged: true, dummyData: this.state.toDoList})
-        } else {
-            console.log('dummy', this.state.dummyData)
-            console.log('before', this.state.toDoList);
-            this.setState({toDoList: this.state.dummyData});
-        }
-
-        console.log('after', this.state.toDoList);
-        var result = _.filter(this.state.toDoList, function (item) {
-            return item.isFinished === false;
-        });
-        this.setState({toDoList: result});
+    handleUnSelectedClick: function () {
+        this.setState({ filterType: FilterType.UNSELECTED});
+        console.log('###', this.state);
     },
 
     handleDeleteAllClick: function (event) {
+
         for (var key in this.state.toDoList) {
             if (this.state.toDoList[key].isFinished === true) {
                 this.fireBase.child(key).remove();
             }
         }
     },
+    handleAllItemsClick:function(){
+        this.setState({ filterType: FilterType.ALL});
+    },
 
-    handleToDoListLoaded: function () {
-        this.setState({dataLoaded: true});
+    filterTodos: function(filterType) {
+        console.log('#### FILTERING TODOS', this.state);
+        switch (filterType) {
+            case FilterType.ALL:
+                return this.state.toDoList;
+            case FilterType.SELECTED:
+                return _.filter(this.state.toDoList, function(todo) {
+                    return todo.isFinished;
+                });
+            case FilterType.UNSELECTED:
+                return _.filter(this.state.toDoList, function(todo) {
+                    return !todo.isFinished;
+                });
+            default:
+                return this.state.toDoList;
+        }
+    },
+
+    handleToDoListLoaded: function (data) {
+        var toDoList = data.val();
+        this.setState({toDoList: toDoList, dataLoaded: true});
     }
 });
 
